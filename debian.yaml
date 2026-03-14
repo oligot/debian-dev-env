@@ -1,0 +1,85 @@
+images:
+  - location: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-generic-arm64.qcow2"
+    arch: "aarch64"
+  - location: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-generic-amd64.qcow2"
+    arch: "x86_64"
+
+vmType: "vz"
+vmOpts:
+  vz:
+    rosetta:
+      enabled: true
+      binfmt: true
+
+# Tell Lima's internal engine to NOT provision containerd
+containerd:
+  system: false
+  user: false
+
+mounts:
+  - location: "~/src"
+    writable: true
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+
+      # Update the system
+      apt-get update
+
+      # Install softwares
+      apt-get install -y bat ca-certificates curl dbus-user-session direnv eza fd-find fzf git git-delta gnupg neovim pinentry-tty ripgrep slirp4netns tig tmux uidmap unzip wget zoxide zsh
+
+      # Install Docker
+      curl -fsSL https://get.docker.com | sh
+      systemctl disable --now docker.service docker.socket
+
+      # This allows rootless Docker to start automatically when the VM boots
+      loginctl enable-linger "{{.User}}"
+
+      # Use zsh as default shell
+      usermod --shell /usr/bin/zsh "{{.User}}"
+
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+
+      # Setup Docker rootless
+      systemctl --user start dbus
+      dockerd-rootless-setuptool.sh install
+      docker context use rootless
+
+      # Setup GPG
+      mkdir -p ~/.gnupg
+      chmod 700 ~/.gnupg
+      echo "pinentry-program /usr/bin/pinentry-tty" > ~/.gnupg/gpg-agent.conf
+
+      # Install Claude Code via the official script
+      curl -fsSL https://claude.ai/install.sh | bash
+
+      # Install Mise
+      curl https://mise.run | sh
+
+      # Install pay-respects
+      curl -sSfL https://raw.githubusercontent.com/iffse/pay-respects/main/install.sh | sh
+
+      # Install zplug
+      curl -sL --proto-redir -all,https https://raw.githubusercontent.com/zplug/installer/master/installer.zsh | zsh
+
+      # Install dotfiles
+      sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/bin"
+      export PATH="$HOME/bin:$PATH"
+      chezmoi init --apply oligot
+
+      # Setup bat and fd
+      # see https://github.com/sharkdp/bat?tab=readme-ov-file#on-ubuntu-using-apt
+      # and https://github.com/sharkdp/fd?tab=readme-ov-file#on-ubuntu
+      mkdir -p ~/bin
+      ln -s /usr/bin/batcat ~/bin/bat
+      ln -s /usr/bin/fdfind ~/bin/fd
+
+      # Setup src directory
+      ln -s /Users/"{{.User}}"/src $HOME/src
