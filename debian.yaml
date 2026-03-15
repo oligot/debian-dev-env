@@ -16,6 +16,10 @@ containerd:
   system: false
   user: false
 
+# Tell Lima to forward the host SSH agent into the VM
+ssh:
+  forwardAgent: true
+
 mounts:
   - location: "~/src"
     writable: true
@@ -30,7 +34,7 @@ provision:
       apt-get update
 
       # Install softwares
-      apt-get install -y bat ca-certificates curl dbus-user-session direnv eza fd-find fzf git git-delta gnupg neovim pinentry-tty ripgrep slirp4netns tig tmux uidmap unzip wget zoxide zsh
+      apt-get install -y bat build-essential ca-certificates curl dbus-user-session direnv eza fd-find fzf git git-delta gnupg pinentry-tty ripgrep slirp4netns tig tmux uidmap unzip wget zoxide zsh
 
       # Install Docker
       curl -fsSL https://get.docker.com | sh
@@ -62,6 +66,9 @@ provision:
 
       # Install Mise
       curl https://mise.run | sh
+
+      # Install additional softwares with mise
+      ~/.local/bin/mise use -g neovim@latest difftastic@latest
 
       # Install pay-respects
       curl -sSfL https://raw.githubusercontent.com/iffse/pay-respects/main/install.sh | sh
